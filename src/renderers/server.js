@@ -1,22 +1,35 @@
-import * as React from 'react';
-import * as ReactDOMServer from 'react-dom/server';
+import express from 'express';
+import config from 'server/config';
+import serverRenderer from 'renderers/server';
+import bodyParser from 'body-parser';
+import morgan from 'morgan';
+import serialize from 'serialize-javascript';
 
-import { App } from 'components/App';
+const app = express();
+app.enable('trust proxy');
+app.use(morgan('common'));
 
-export async function serverRenderer() {
-  const initialData = {
-    appName: 'Reactful',
-  };
+app.use(express.static('public'));
 
-  const pageData = {
-    title: `Hello ${initialData.appName}`,
-  };
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-  return Promise.resolve({
-    initialData,
-    initialMarkup: ReactDOMServer.renderToString(
-      <App initialData={initialData} />,
-    ),
-    pageData,
-  });
-}
+app.locals.serialize = serialize;
+
+app.get('/', async (req, res) => {
+  try {
+    const vars = await serverRenderer();
+    res.render('index', vars);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+app.listen(config.port, config.host, () => {
+  console.info(`Running on ${config.host}:${config.port}...`);
+});
+
+
+
